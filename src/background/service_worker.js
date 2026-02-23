@@ -24,11 +24,27 @@ const ALARM_BYPASS_EXPIRY = 'bypassExpiry';
 
 /**
  * Hostnames that are always allowed through.
- * Includes LeetCode itself and Google SSO used for LeetCode login.
+ * Includes LeetCode itself, Google SSO, and popular DSA reference/study sites.
  */
 const ALLOWED_HOSTNAMES = new Set([
+  // LeetCode + auth
   'leetcode.com',
   'accounts.google.com',
+
+  // Popular DSA study / problem-list sites
+  'neetcode.io',              // NeetCode (problem lists, solutions)
+  'takeuforward.org',         // Striver's A2Z / SDE Sheet
+  'geeksforgeeks.org',        // GFG articles and problem explanations
+  'cp-algorithms.com',        // Competitive programming algorithms reference
+  'codeforces.com',           // CP contest platform often used alongside LC
+  'interviewbit.com',         // Interview prep problems
+  'algo.monster',             // Algo Monster pattern guide
+  'lintcode.com',             // Alternative problem bank
+  'codingninjas.com',         // Coding Ninjas DSA courses
+  'algoexpert.io',            // AlgoExpert
+  'interviewing.io',          // Mock interviews
+  'hackerrank.com',           // HackerRank
+  'github.com',               // Solution repos, study guides
 ]);
 
 /**
@@ -54,7 +70,9 @@ function isUrlAllowed(url) {
     if (url.startsWith(prefix)) return true;
   }
   try {
-    const { hostname } = new URL(url);
+    let { hostname } = new URL(url);
+    // Strip leading www. so both www.geeksforgeeks.org and geeksforgeeks.org match
+    if (hostname.startsWith('www.')) hostname = hostname.slice(4);
     return ALLOWED_HOSTNAMES.has(hostname);
   } catch {
     return true; // unparseable URL — allow through
