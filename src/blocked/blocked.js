@@ -96,3 +96,19 @@ setInterval(updateDisplay, 5000);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local') updateDisplay();
 });
+
+// Sync button — re-fetches solve count from LeetCode API
+const btnSync = document.getElementById('btn-sync');
+btnSync?.addEventListener('click', async () => {
+  btnSync.disabled = true;
+  btnSync.textContent = '↻ Syncing…';
+  try {
+    await chrome.runtime.sendMessage({ type: 'FORCE_SYNC' });
+    await updateDisplay();
+  } catch {
+    await updateDisplay();
+  } finally {
+    btnSync.disabled = false;
+    btnSync.textContent = '↻ Sync progress';
+  }
+});
