@@ -219,10 +219,9 @@ header {
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .daily-title:hover { text-decoration: underline; }
