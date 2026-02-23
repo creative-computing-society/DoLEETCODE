@@ -17,13 +17,13 @@ A Chrome extension that blocks all websites until you complete your daily LeetCo
 - **Daily Challenge card** — shows today's problem title as a clickable link in the popup
 - **Emergency bypass** — 3-hour unlock, once per UTC day
 - **Goal-complete notification** — optional system notification with streak info
-- **Inline settings** — configure everything directly in the popup, no separate settings page needed
+-   **Inline settings** — configure everything via the Settings page (⚙️ in the popup)
 
 ---
 
-## Installing in Chrome (Developer Mode)
+## Installing in Chrome / Arc / Brave / Edge (Developer Mode)
 
-> **No build step required.** The extension runs as plain JavaScript — just point Chrome at the `src/` folder.
+> **No build step required.** The extension runs as plain JavaScript — just point your browser at the `src/` folder.
 
 ### Step 1 — Download the project
 
@@ -35,26 +35,24 @@ cd leetcode-forcer
 
 **Option B — Download ZIP:**
 1. Click the green **Code** button on GitHub → **Download ZIP**
-2. Unzip the downloaded file somewhere you won't accidentally delete it (e.g. `~/Extensions/leetcode-forcer`)
+2. Unzip somewhere permanent (e.g. `~/Extensions/leetcode-forcer`)
 
 ---
 
-### Step 2 — Open Chrome Extensions
+### Step 2 — Open the Extensions page
 
-Open a new tab and go to:
-```
-chrome://extensions
-```
-
-Or navigate via the menu: **⋮ → Extensions → Manage Extensions**
+| Browser | URL |
+|---------|-----|
+| Chrome | `chrome://extensions` |
+| **Arc** | **`arc://extensions`** |
+| Brave | `brave://extensions` |
+| Edge | `edge://extensions` |
 
 ---
 
 ### Step 3 — Enable Developer Mode
 
 In the top-right corner of the Extensions page, toggle **Developer mode** ON.
-
-![Developer mode toggle](https://developer.chrome.com/static/docs/extensions/get-started/tutorial/hello-world/image/extensions-page-e0d64d89a6acf_856.png)
 
 ---
 
@@ -71,16 +69,15 @@ The extension will appear in your list with the ⚡ icon.
 
 ### Step 5 — Pin the extension (recommended)
 
-1. Click the puzzle-piece icon (🧩) in the Chrome toolbar
-2. Find **LeetCode Forcer** and click the 📌 pin icon
+**Chrome / Brave / Edge:** Click the puzzle-piece 🧩 icon in the toolbar → pin ⚡ LeetCode Forcer.
 
-The ⚡ icon will now appear in your toolbar for quick access.
+**Arc:** The extension icon appears in the Arc toolbar automatically. You can also access it via the toolbar overflow menu.
 
 ---
 
 ### Step 6 — Configure
 
-Click the ⚡ icon → enter your **LeetCode username** → click **Save & Start**.
+Click the ⚡ icon → click **Open Settings →** → enter your LeetCode username and set your daily goal → **Save Settings**.
 
 The extension will:
 1. Verify you are logged into LeetCode in this browser
@@ -93,11 +90,12 @@ The extension will:
 
 If you pull new code or edit any files:
 
-1. Go to `chrome://extensions`
-2. Find **LeetCode Forcer**
-3. Click the **↺ refresh** icon on its card
-
-Chrome will reload the extension with the latest files.
+| Browser | URL | Action |
+|---------|-----|--------|
+| Chrome | `chrome://extensions` | Click ↺ refresh on the card |
+| Arc | `arc://extensions` | Click ↺ refresh on the card |
+| Brave | `brave://extensions` | Click ↺ refresh on the card |
+| Edge | `edge://extensions` | Click ↺ refresh on the card |
 
 ---
 
@@ -131,8 +129,10 @@ All detection is **passive** (reads your own active session, never logs in on yo
 ## Troubleshooting
 
 **Extension not blocking sites?**
-- Make sure you entered your LeetCode username in the popup settings
+- Make sure you entered your LeetCode username in Settings (click ⚙️ in the popup)
 - Confirm you are logged into LeetCode at [leetcode.com](https://leetcode.com) in the same browser profile
+- **Arc users:** go to `arc://extensions`, find LeetCode Forcer, and click ↺ reload
+- **Arc users:** blocking does not apply inside Arc's "Little Arc" preview windows — only full tabs are blocked
 - Click ↺ refresh on the Extensions page and try again
 
 **Solve not detected automatically?**

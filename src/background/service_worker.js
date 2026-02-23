@@ -55,16 +55,17 @@ async function applyBlockRule() {
         priority: 1,
         action: {
           type: 'redirect',
-          // Use an absolute URL so Arc and other Chromium forks resolve it correctly.
-          // extensionPath is relative and silently fails on some browsers.
+          // Absolute chrome-extension:// URL — works in Chrome, Arc, Brave, Edge.
           redirect: { url: chrome.runtime.getURL('blocked/blocked.html') },
         },
         condition: {
-          // Match http:// and https:// — separate filters are more reliable across
-          // Chromium forks than the combined |http* wildcard.
-          regexFilter: 'https?://',
-          isUrlFilterCaseSensitive: false,
+          // '|http' anchors to the start of the URL and matches both http:// and https://.
+          // This is the most universally supported DNR filter across all Chromium forks
+          // (regexFilter is unreliable in Arc and some Chromium-based browsers).
+          urlFilter: '|http',
           excludedRequestDomains: ['leetcode.com'],
+          // Also exclude by initiator so Arc's internal navigation is not caught.
+          excludedInitiatorDomains: ['leetcode.com'],
           resourceTypes: ['main_frame'],
         },
       },
