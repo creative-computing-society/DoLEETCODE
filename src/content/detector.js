@@ -141,7 +141,8 @@
     for (const sel of selectors) {
       try {
         const el = document.querySelector(sel);
-        if (el && el.textContent.trim().toLowerCase().includes('accepted')) {
+        // Must be exactly "Accepted" — partial matches like "14/15 testcases accepted" are failed submissions
+        if (el && /^\s*accepted\s*$/i.test(el.textContent.trim())) {
           domDetectedThisLoad = true;
           handleAccepted(null);
           return;
@@ -151,7 +152,7 @@
       }
     }
 
-    // Broader text search as an absolute last resort
+    // Broader text search as an absolute last resort — still require exact match
     const resultArea = document.querySelector('[class*="result"], [class*="submission"]');
     if (resultArea) {
       const isAccepted = /^\s*accepted\s*$/im.test(resultArea.textContent);
