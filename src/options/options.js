@@ -27,12 +27,13 @@ async function loadSettings() {
   notifyInput.checked       = state.notifyOnComplete;
 
   // Lock goal-related settings if today's goal hasn't been met yet.
-  // Username and notifications are always editable.
+  // All fields (including username) are locked until goal is met.
   const goalMet =
     state.solvesToday >= state.dailyGoal &&
     (!state.requireDaily || state.dailySolved);
 
   if (!goalMet && state.leetcodeUsername) {
+    usernameInput.disabled    = true;
     dailyGoalInput.disabled   = true;
     requireDailyInput.disabled = true;
     document.getElementById('goal-locked-banner').classList.remove('hidden');
@@ -55,25 +56,23 @@ form.addEventListener('submit', async (e) => {
   const dailyGoal = parseInt(dailyGoalInput.value, 10);
   const requireDaily = requireDailyInput.checked;
 
-  if (!username) {
+  if (!usernameInput.disabled && !username) {
     showStatus('Please enter your LeetCode username.', 'error');
     usernameInput.focus();
     return;
   }
 
-  if (!dailyGoal || dailyGoal < 1) {
+  if (!dailyGoalInput.disabled && (!dailyGoal || dailyGoal < 1)) {
     showStatus('Daily goal must be at least 1.', 'error');
     dailyGoalInput.focus();
     return;
   }
 
   await chrome.storage.local.set({
-    leetcodeUsername: username,
-    // Only persist goal/requireDaily if the inputs weren't locked
+    // Only persist fields that aren't locked
+    ...(usernameInput.disabled  ? {} : { leetcodeUsername: username, lastPollDate: null }),
     ...(dailyGoalInput.disabled ? {} : { dailyGoal, requireDaily }),
     notifyOnComplete: notifyInput.checked,
-    // Reset daily poll cache so the new username gets polled on next startup
-    lastPollDate: null,
   });
 
   // Tell background service worker to re-evaluate blocking
