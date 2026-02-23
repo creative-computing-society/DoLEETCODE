@@ -10,6 +10,7 @@ async function updateDisplay() {
     dailyGoal: 1,
     requireDaily: false,
     dailySolved: false,
+    bypassExpiresAt: null,
   });
 
   document.getElementById('solved-count').textContent = state.solvesToday;
@@ -28,12 +29,15 @@ async function updateDisplay() {
     }
   }
 
-  // If goal is now met (e.g., they solved while on this page), redirect to a neutral page
   const goalMet =
     state.solvesToday >= state.dailyGoal &&
     (!state.requireDaily || state.dailySolved);
 
-  if (goalMet) {
+  const bypassActive =
+    state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
+
+  // Redirect away from blocked page when goal is met OR bypass is active
+  if (goalMet || bypassActive) {
     window.location.replace('https://leetcode.com/problems/');
   }
 }

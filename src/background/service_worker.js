@@ -1,8 +1,9 @@
 /**
  * background/service_worker.js
  * Heart of the extension. Handles:
+ *   - Tab-based redirect blocking via chrome.tabs.onUpdated / onActivated
+ *     (same approach as golldyydev/LeetCodeForcer — works in Arc, Brave, Edge)
  *   - Daily alarm scheduling and reset (UTC midnight)
- *   - Blocking rule management via declarativeNetRequest
  *   - Lazy poll on startup to sync solve count (max once per UTC day)
  *   - Receiving SOLVE_DETECTED messages from the content script
  *   - Emergency bypass activation
@@ -16,15 +17,64 @@
 import { getState, setState, resetDailyState, todayUTC, yesterdayUTC, nextUTCMidnight } from '../utils/storage.js';
 import { fetchTodaySolves, fetchDailyChallenge } from '../utils/api.js';
 
-const BLOCK_RULE_ID = 1;
-const ALARM_DAILY_RESET = 'dailyReset';
+const ALARM_DAILY_RESET  = 'dailyReset';
 const ALARM_BYPASS_EXPIRY = 'bypassExpiry';
 
-// ─── Blocking Rules ────────────────────────────────────────────────────────────
+// ─── URL Whitelist ─────────────────────────────────────────────────────────────
 
-/** Apply or remove the global blocking DNR rule based on current state. */
-async function evaluateBlocking() {
+/**
+ * Hostnames that are always allowed through.
+ * Includes LeetCode itself and Google SSO used for LeetCode login.
+ */
+const ALLOWED_HOSTNAMES = new Set([
+  'leetcode.com',
+  'accounts.google.com',
+]);
+
+/**
+ * URL scheme prefixes that are never blocked.
+ * Covers all browser-internal pages (chrome://, arc://, brave://, edge://)
+ * and extension pages themselves.
+ */
+const ALLOWED_PREFIXES = [
+  'chrome://',
+  'chrome-extension://',
+  'arc://',
+  'brave://',
+  'edge://',
+  'about:',
+  'data:',
+  'javascript:',
+  'moz-extension://',  // Firefox compatibility if ever needed
+];
+
+function isUrlAllowed(url) {
+  if (!url) return true;
+  for (const prefix of ALLOWED_PREFIXES) {
+    if (url.startsWith(prefix)) return true;
+  }
+  try {
+    const { hostname } = new URL(url);
+    return ALLOWED_HOSTNAMES.has(hostname);
+  } catch {
+    return true; // unparseable URL — allow through
+  }
+}
+
+// ─── Tab-based Redirect ────────────────────────────────────────────────────────
+
+/**
+ * Check a single tab and redirect it to the blocked page if needed.
+ * This is the core blocking mechanism — identical in principle to how
+ * golldyydev/LeetCodeForcer handles blocking, which works across all
+ * Chromium forks (Chrome, Arc, Brave, Edge) without any DNR quirks.
+ */
+async function evaluateTab(tabId, url) {
+  if (isUrlAllowed(url)) return;
+
   const state = await getState();
+
+  if (!state.leetcodeUsername) return; // not configured yet
 
   const goalMet =
     state.solvesToday >= state.dailyGoal &&
@@ -33,51 +83,49 @@ async function evaluateBlocking() {
   const bypassActive =
     state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
 
-  const shouldBlock = !goalMet && !bypassActive && state.leetcodeUsername !== '';
-
-  if (shouldBlock) {
-    await applyBlockRule();
-  } else {
-    await removeBlockRule();
+  if (!goalMet && !bypassActive) {
+    try {
+      await chrome.tabs.update(tabId, {
+        url: chrome.runtime.getURL('blocked/blocked.html'),
+      });
+    } catch {
+      // Tab was closed between the check and the update — safe to ignore
+    }
   }
 }
 
-async function applyBlockRule() {
-  const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const alreadyApplied = existingRules.some((r) => r.id === BLOCK_RULE_ID);
-  if (alreadyApplied) return;
-
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [BLOCK_RULE_ID],
-    addRules: [
-      {
-        id: BLOCK_RULE_ID,
-        priority: 1,
-        action: {
-          type: 'redirect',
-          // Absolute chrome-extension:// URL — works in Chrome, Arc, Brave, Edge.
-          redirect: { url: chrome.runtime.getURL('blocked/blocked.html') },
-        },
-        condition: {
-          // '|http' anchors to the start of the URL and matches both http:// and https://.
-          // This is the most universally supported DNR filter across all Chromium forks
-          // (regexFilter is unreliable in Arc and some Chromium-based browsers).
-          urlFilter: '|http',
-          excludedRequestDomains: ['leetcode.com'],
-          // Also exclude by initiator so Arc's internal navigation is not caught.
-          excludedInitiatorDomains: ['leetcode.com'],
-          resourceTypes: ['main_frame'],
-        },
-      },
-    ],
-  });
+/**
+ * Re-evaluate every open tab across all windows.
+ * Called after state changes: solve detected, bypass expired, settings saved, daily reset.
+ */
+async function evaluateBlocking() {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id && tab.url) {
+      await evaluateTab(tab.id, tab.url);
+    }
+  }
 }
 
-async function removeBlockRule() {
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [BLOCK_RULE_ID],
-  });
-}
+// ─── Tab Event Listeners ───────────────────────────────────────────────────────
+
+// Fires on every tab navigation change. We wait for status==='complete'
+// to avoid duplicate firings caused by iFrame loads (same guard as golldyydev).
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url !== undefined) {
+    evaluateTab(tabId, tab.url);
+  }
+});
+
+// Fires when the user switches to a tab or opens a new one.
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.url) evaluateTab(tabId, tab.url);
+  } catch {
+    // Tab already closed
+  }
+});
 
 // ─── Daily Alarm ───────────────────────────────────────────────────────────────
 
@@ -247,7 +295,8 @@ async function activateBypass() {
   await chrome.alarms.clear(ALARM_BYPASS_EXPIRY);
   chrome.alarms.create(ALARM_BYPASS_EXPIRY, { when: expiresAt });
 
-  await removeBlockRule();
+  // No rule to remove — tab-based blocking re-evaluates on every navigation.
+  // Existing blocked-page tabs will detect bypass via their storage poll.
 
   return { success: true, expiresAt };
 }

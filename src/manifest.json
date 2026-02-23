@@ -9,13 +9,11 @@
   "permissions": [
     "storage",
     "alarms",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
     "tabs",
     "notifications"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "https://*/"
   ],
 
   "background": {
@@ -57,9 +55,5 @@
       "resources": ["blocked/blocked.html", "blocked/blocked.css", "blocked/blocked.js", "icons/*.png"],
       "matches": ["<all_urls>"]
     }
-  ],
-
-  "declarative_net_request": {
-    "rule_resources": []
-  }
+  ]
 }
