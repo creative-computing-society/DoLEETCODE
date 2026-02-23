@@ -29,6 +29,10 @@ export const DEFAULTS = {
   currentStreak: 0,
   longestStreak: 0,
   lastGoalMetDate: null,   // 'YYYY-MM-DD' UTC of last day goal was met
+
+  // Rate-limiting guard: epoch ms of last LeetCode API call.
+  // Prevents hammering the API on rapid wake-ups or button spam.
+  lastPollTimestamp: 0,
 };
 
 /** Read all state from storage, merging with defaults for missing keys. */

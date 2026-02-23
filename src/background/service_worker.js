@@ -17,8 +17,33 @@
 import { getState, setState, resetDailyState, todayUTC, yesterdayUTC, nextUTCMidnight } from '../utils/storage.js';
 import { fetchTodaySolves, fetchDailyChallenge } from '../utils/api.js';
 
-const ALARM_DAILY_RESET  = 'dailyReset';
+const ALARM_DAILY_RESET   = 'dailyReset';
 const ALARM_BYPASS_EXPIRY = 'bypassExpiry';
+/**
+ * Fires ~45 s after the last SOLVE_DETECTED to do one authoritative API sync.
+ * Using an alarm (not setTimeout) means the check survives service-worker sleep.
+ * It is always recreated on every detection, so rapid back-to-back submits
+ * collapse into a single network request.
+ */
+const ALARM_VERIFY_SOLVE  = 'verifyAfterSolve';
+
+/**
+ * Minimum milliseconds between any two LeetCode API calls.
+ * Prevents hammering the API on rapid service-worker wakes, power-cycling,
+ * or repeated force-sync button presses.
+ * 5 minutes is generous — LeetCode's own site polls far more often.
+ */
+const MIN_POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Returns true if enough time has passed since the last API call. */
+async function canPollNow() {
+  const { lastPollTimestamp = 0 } = await chrome.storage.local.get('lastPollTimestamp');
+  return Date.now() - lastPollTimestamp >= MIN_POLL_INTERVAL_MS;
+}
+
+async function stampPollTime() {
+  await chrome.storage.local.set({ lastPollTimestamp: Date.now() });
+}
 
 // ─── URL Whitelist ─────────────────────────────────────────────────────────────
 
@@ -237,14 +262,24 @@ async function checkAndHandleGoalMet(prevState) {
 // ─── Lazy Poll ─────────────────────────────────────────────────────────────────
 
 /**
- * On startup, if we haven't polled today (UTC), query LeetCode once.
- * Syncs solve count and fetches today's daily challenge metadata.
+ * On startup — and whenever settings change — sync solve count + daily challenge.
+ * Gated by two conditions:
+ *   a) Never polled today (UTC date changed) — hard gate, always runs on new day.
+ *   b) MIN_POLL_INTERVAL_MS has passed — prevents bursts within a session.
+ * Returns immediately (no-op) if either gate blocks, so it’s safe to call often.
  */
 async function lazyPollIfNeeded() {
   const state = await getState();
-
   if (!state.leetcodeUsername) return;
-  if (state.lastPollDate === todayUTC()) return; // already polled today
+
+  const newDay = state.lastPollDate !== todayUTC();
+  const cooldownPassed = await canPollNow();
+
+  // Skip only if we’ve already polled today AND the cooldown hasn’t expired.
+  // On a new UTC day, always poll regardless of cooldown.
+  if (!newDay && !cooldownPassed) return;
+
+  await stampPollTime(); // stamp immediately to block concurrent wakes
 
   // Fetch daily challenge info (slug + title + link)
   const daily = await fetchDailyChallenge();
@@ -276,11 +311,19 @@ async function lazyPollIfNeeded() {
 
 // ─── Solve Detected (from content script) ─────────────────────────────────────
 
+/**
+ * Called by the content script whenever it sees status_msg==='Accepted'.
+ *
+ * Strategy — zero extra API calls per submit:
+ *  1. Deduplicate by slug (layers 1+2 can both fire for the same submission).
+ *  2. Increment local counter immediately — instant UI update, no network.
+ *  3. Schedule ALARM_VERIFY_SOLVE to fire ~45 s from now (debounced).
+ *     Rapid back-to-back solves just push the alarm forward — collapses to
+ *     ONE API call regardless of how many problems were submitted quickly.
+ */
 async function handleSolveDetected({ questionSlug }) {
   const prevState = await getState();
 
-  // ── Step 1: Optimistic local update (fast UI response) ──────────────────────
-  // Add the slug immediately so the popup shows a count bump right away.
   if (!prevState.solvedSlugs.includes(questionSlug)) {
     const newSlugs = [...prevState.solvedSlugs, questionSlug];
     const dailySolved =
@@ -292,40 +335,45 @@ async function handleSolveDetected({ questionSlug }) {
       solvedSlugs: newSlugs,
       dailySolved,
     });
+    await checkAndHandleGoalMet(prevState);
   }
 
-  // ── Step 2: Authoritative sync from LeetCode API ────────────────────────────
-  // Always re-fetch so we're not relying on a potentially drifted local counter.
-  // This also catches any solves the content script missed (e.g. submitted from
-  // a different tab / session). One API call per submission is normal behaviour
-  // — no ban risk.
-  if (prevState.leetcodeUsername) {
-    try {
-      const { count, slugs, loggedIn } = await fetchTodaySolves(prevState.leetcodeUsername);
-      if (loggedIn) {
-        const state = await getState();
-        // Merge API slugs with any optimistically added ones
-        const mergedSlugsSet = new Set([...slugs, ...state.solvedSlugs]);
-        const mergedSlugs = [...mergedSlugsSet];
-        const dailySolved = state.dailySlug
-          ? mergedSlugsSet.has(state.dailySlug)
-          : state.dailySolved;
-        await setState({
-          solvesToday: Math.max(count, mergedSlugs.length),
-          solvedSlugs: mergedSlugs,
-          lastPollDate: todayUTC(),
-          loggedIn: true,
-          dailySolved,
-        });
-      }
-    } catch {
-      // API call failed (offline etc.) — keep the optimistic value
-    }
-  }
-
-  const stateBeforeGoalCheck = prevState;
-  await checkAndHandleGoalMet(stateBeforeGoalCheck);
   await evaluateBlocking();
+
+  // Debounced accuracy check — (re)set alarm to 45 s from now.
+  await chrome.alarms.clear(ALARM_VERIFY_SOLVE);
+  chrome.alarms.create(ALARM_VERIFY_SOLVE, { delayInMinutes: 0.75 }); // ~45 s
+}
+
+/**
+ * Triggered by ALARM_VERIFY_SOLVE ~45 s after the last detected solve.
+ * Makes ONE authoritative API call to reconcile the local counter with
+ * LeetCode's truth. Merges rather than overwrites to handle the case where
+ * the submission was so recent that LeetCode's API hasn't indexed it yet.
+ */
+async function verifySolveCount() {
+  const state = await getState();
+  if (!state.leetcodeUsername) return;
+  if (!(await canPollNow())) return; // respect rate limit even for verify alarm
+  try {
+    await stampPollTime();
+    const { count, slugs, loggedIn } = await fetchTodaySolves(state.leetcodeUsername);
+    if (!loggedIn) return;
+    const mergedSet   = new Set([...slugs, ...state.solvedSlugs]);
+    const mergedSlugs = [...mergedSet];
+    const trueCount   = Math.max(count, mergedSlugs.length);
+    const dailySolved = state.dailySlug ? mergedSet.has(state.dailySlug) : state.dailySolved;
+    await setState({
+      solvesToday:  trueCount,
+      solvedSlugs:  mergedSlugs,
+      lastPollDate: todayUTC(),
+      loggedIn:     true,
+      dailySolved,
+    });
+    await evaluateBlocking();
+  } catch {
+    // Network offline — local counter stands until next sync
+  }
 }
 
 // ─── Force Sync (triggered by popup Sync button) ──────────────────────────────
@@ -333,6 +381,13 @@ async function handleSolveDetected({ questionSlug }) {
 async function forceSync() {
   const state = await getState();
   if (!state.leetcodeUsername) return;
+
+  // For explicit user-triggered syncs, use a short 10-second dedup window only
+  // (prevents double-fire if the service worker happens to wake twice). The
+  // 5-minute MIN_POLL_INTERVAL only applies to background auto-polls.
+  const { lastPollTimestamp = 0 } = await chrome.storage.local.get('lastPollTimestamp');
+  if (Date.now() - lastPollTimestamp < 10_000) return;
+  await stampPollTime();
 
   const daily = await fetchDailyChallenge();
   if (daily) {
@@ -378,6 +433,10 @@ async function activateBypass() {
 // ─── Alarm Handler ─────────────────────────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === ALARM_VERIFY_SOLVE) {
+    await verifySolveCount();
+  }
+
   if (alarm.name === ALARM_DAILY_RESET) {
     await resetDailyState();
     // Fetch daily challenge for the new UTC day
@@ -417,12 +476,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'GET_STATE') {
-    getState().then(sendResponse);
+    // Read state once, respond immediately, then kick background poll if stale.
+    // lazyPollIfNeeded is rate-gated so this never spams the API.
+    getState().then(s => {
+      sendResponse(s);
+      if (s.leetcodeUsername) lazyPollIfNeeded();
+    });
     return true;
   }
 
   if (message.type === 'SETTINGS_UPDATED') {
-    evaluateBlocking().then(() => sendResponse({ ok: true }));
+    // Settings changed (e.g. username just entered for the first time).
+    // Clear lastPollTimestamp so the next lazyPollIfNeeded runs immediately,
+    // giving the user an instant solve-count on first setup.
+    chrome.storage.local.set({ lastPollTimestamp: 0 }).then(() => {
+      return lazyPollIfNeeded();
+    }).then(() => sendResponse({ ok: true }));
     return true;
   }
 
