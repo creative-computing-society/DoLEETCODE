@@ -55,10 +55,15 @@ async function applyBlockRule() {
         priority: 1,
         action: {
           type: 'redirect',
-          redirect: { extensionPath: '/blocked/blocked.html' },
+          // Use an absolute URL so Arc and other Chromium forks resolve it correctly.
+          // extensionPath is relative and silently fails on some browsers.
+          redirect: { url: chrome.runtime.getURL('blocked/blocked.html') },
         },
         condition: {
-          urlFilter: '|http*',
+          // Match http:// and https:// — separate filters are more reliable across
+          // Chromium forks than the combined |http* wildcard.
+          regexFilter: 'https?://',
+          isUrlFilterCaseSensitive: false,
           excludedRequestDomains: ['leetcode.com'],
           resourceTypes: ['main_frame'],
         },

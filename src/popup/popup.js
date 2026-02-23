@@ -1,46 +1,31 @@
 /**
  * popup/popup.js
- * Full popup UI: progress, streak, daily challenge, inline settings panel.
- * All writes go through chrome.storage.local; then SETTINGS_UPDATED is sent
- * to the service worker so it can re-evaluate blocking immediately.
+ * Renders popup: progress, streak, daily challenge, bypass.
+ * Settings live on the full options page (⚙️ opens a tab).
  */
 
 // ── Element refs ──────────────────────────────────────────────────────────────
-const viewSetup   = document.getElementById('view-setup');
-const viewLogin   = document.getElementById('view-login');
-const viewMain    = document.getElementById('view-main');
+const viewSetup       = document.getElementById('view-setup');
+const viewLogin       = document.getElementById('view-login');
+const viewMain        = document.getElementById('view-main');
 
-// Setup view
-const setupUsername  = document.getElementById('setup-username');
-const btnSetupSave   = document.getElementById('btn-setup-save');
-
-// Main view
-const bannerDone     = document.getElementById('banner-done');
-const bannerBypass   = document.getElementById('banner-bypass');
+const bannerDone      = document.getElementById('banner-done');
+const bannerBypass    = document.getElementById('banner-bypass');
 const bypassCountdown = document.getElementById('bypass-countdown');
 const progressFraction = document.getElementById('progress-fraction');
-const progressBar    = document.getElementById('progress-bar');
-const streakCurrent  = document.getElementById('streak-current');
-const streakLongest  = document.getElementById('streak-longest');
-const dailyCard      = document.getElementById('daily-card');
-const dailyLink      = document.getElementById('daily-link');
-const dailyBadge     = document.getElementById('daily-badge');
-const btnBypass      = document.getElementById('btn-bypass');
-const btnSettings    = document.getElementById('btn-settings');
-
-// Settings panel
-const settingsPanel  = document.getElementById('settings-panel');
-const btnSettingsClose = document.getElementById('btn-settings-close');
-const sUsername      = document.getElementById('s-username');
-const sGoal          = document.getElementById('s-goal');
-const sRequireDaily  = document.getElementById('s-require-daily');
-const sNotify        = document.getElementById('s-notify');
-const btnSettingsSave = document.getElementById('btn-settings-save');
-const settingsSaved  = document.getElementById('settings-saved');
+const progressBar     = document.getElementById('progress-bar');
+const streakCurrent   = document.getElementById('streak-current');
+const streakLongest   = document.getElementById('streak-longest');
+const dailyCard       = document.getElementById('daily-card');
+const dailyLink       = document.getElementById('daily-link');
+const dailyBadge      = document.getElementById('daily-badge');
+const btnBypass       = document.getElementById('btn-bypass');
+const btnSettings     = document.getElementById('btn-settings');
+const btnOpenSettings = document.getElementById('btn-open-settings');
 
 let countdownInterval = null;
 
-// ── View helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function showView(id) {
   viewSetup.classList.add('hidden');
   viewLogin.classList.add('hidden');
@@ -48,21 +33,6 @@ function showView(id) {
   document.getElementById(id).classList.remove('hidden');
 }
 
-function openSettings(state) {
-  // Pre-fill settings panel with current values
-  sUsername.value       = state.leetcodeUsername || '';
-  sGoal.value           = state.dailyGoal ?? 1;
-  sRequireDaily.checked = !!state.requireDaily;
-  sNotify.checked       = !!state.notifyOnComplete;
-  settingsSaved.classList.add('hidden');
-  settingsPanel.classList.remove('hidden');
-}
-
-function closeSettings() {
-  settingsPanel.classList.add('hidden');
-}
-
-// ── Formatting ────────────────────────────────────────────────────────────────
 function formatCountdown(expiresAt) {
   const remaining = Math.max(0, expiresAt - Date.now());
   const h = Math.floor(remaining / 3600000);
@@ -71,21 +41,11 @@ function formatCountdown(expiresAt) {
   return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
 }
 
-// ── Main render ───────────────────────────────────────────────────────────────
+// ── Render ─────────────────────────────────────────────────────────────────────
 function render(state) {
-  // 1. No username — show setup
-  if (!state.leetcodeUsername) {
-    showView('view-setup');
-    return;
-  }
+  if (!state.leetcodeUsername) { showView('view-setup'); return; }
+  if (state.loggedIn === false) { showView('view-login'); return; }
 
-  // 2. Not logged in
-  if (state.loggedIn === false) {
-    showView('view-login');
-    return;
-  }
-
-  // 3. Main view
   showView('view-main');
 
   const goalMet =
@@ -99,7 +59,7 @@ function render(state) {
   bannerDone.classList.toggle('hidden', !goalMet);
   bannerBypass.classList.toggle('hidden', !bypassActive);
 
-  // Bypass countdown ticker
+  // Live bypass countdown
   clearInterval(countdownInterval);
   if (bypassActive) {
     const tick = () => {
@@ -130,18 +90,12 @@ function render(state) {
     dailyCard.classList.remove('hidden');
     dailyLink.textContent = state.dailyTitle;
     dailyLink.href = state.dailyLink || 'https://leetcode.com';
-
     if (state.requireDaily) {
-      if (state.dailySolved) {
-        dailyBadge.textContent = '✓ Solved';
-        dailyBadge.className = 'badge done';
-      } else {
-        dailyBadge.textContent = 'Pending';
-        dailyBadge.className = 'badge pending';
-      }
+      dailyBadge.textContent = state.dailySolved ? '✓ Solved' : 'Pending';
+      dailyBadge.className   = state.dailySolved ? 'badge done' : 'badge pending';
     } else {
       dailyBadge.textContent = 'Today';
-      dailyBadge.className = 'badge';
+      dailyBadge.className   = 'badge';
     }
   } else {
     dailyCard.classList.add('hidden');
@@ -157,41 +111,26 @@ function render(state) {
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
-let _lastState = null;
-
 async function loadAndRender() {
   try {
     const state = await chrome.runtime.sendMessage({ type: 'GET_STATE' });
-    _lastState = state;
     render(state);
   } catch {
-    // Service worker waking up — fall back to direct storage read
-    const defaults = {
+    // Service worker waking — fall back to direct storage read
+    const state = await chrome.storage.local.get({
       leetcodeUsername: '', dailyGoal: 1, requireDaily: false,
       notifyOnComplete: true, solvesToday: 0, dailySolved: false,
       bypassUsed: false, bypassExpiresAt: null, loggedIn: null,
       currentStreak: 0, longestStreak: 0, dailyTitle: '', dailyLink: '',
-    };
-    const state = await chrome.storage.local.get(defaults);
-    _lastState = state;
+    });
     render(state);
   }
 }
 
-// ── Event: setup save ─────────────────────────────────────────────────────────
-btnSetupSave?.addEventListener('click', async () => {
-  const username = setupUsername.value.trim();
-  if (!username) { setupUsername.focus(); return; }
-  await chrome.storage.local.set({ leetcodeUsername: username });
-  try { await chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATED' }); } catch { /* sw waking */ }
-  await loadAndRender();
-});
+// ── Events ────────────────────────────────────────────────────────────────────
+btnSettings?.addEventListener('click', () => chrome.runtime.openOptionsPage());
+btnOpenSettings?.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
-setupUsername?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') btnSetupSave.click();
-});
-
-// ── Event: bypass ─────────────────────────────────────────────────────────────
 btnBypass?.addEventListener('click', async () => {
   btnBypass.disabled = true;
   try {
@@ -207,40 +146,6 @@ btnBypass?.addEventListener('click', async () => {
   }
 });
 
-// ── Event: open / close settings ─────────────────────────────────────────────
-btnSettings?.addEventListener('click', () => {
-  openSettings(_lastState || {});
-});
-
-btnSettingsClose?.addEventListener('click', closeSettings);
-
-// Close if clicking the panel backdrop (i.e. directly on the panel, not children)
-// Not needed here since panel covers full area, so just use the X button.
-
-// ── Event: save settings ─────────────────────────────────────────────────────
-btnSettingsSave?.addEventListener('click', async () => {
-  const username = sUsername.value.trim();
-  const goal = Math.max(1, Math.min(30, parseInt(sGoal.value, 10) || 1));
-
-  if (!username) { sUsername.focus(); return; }
-
-  await chrome.storage.local.set({
-    leetcodeUsername: username,
-    dailyGoal: goal,
-    requireDaily: sRequireDaily.checked,
-    notifyOnComplete: sNotify.checked,
-  });
-
-  try { await chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATED' }); } catch { /* sw waking */ }
-
-  settingsSaved.classList.remove('hidden');
-  setTimeout(() => settingsSaved.classList.add('hidden'), 2000);
-
-  await loadAndRender();
-});
-
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadAndRender();
-
-// Refresh every 30 s while popup is open
 setInterval(loadAndRender, 30_000);

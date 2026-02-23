@@ -12,12 +12,8 @@
   <div id="view-setup" class="view hidden">
     <div class="setup-logo">⚡</div>
     <h2>LeetCode Forcer</h2>
-    <p class="muted">Enter your LeetCode username to get started.</p>
-    <div class="field-group">
-      <label class="field-label" for="setup-username">LeetCode Username</label>
-      <input id="setup-username" class="field-input" type="text" placeholder="e.g. john_doe" autocomplete="off" spellcheck="false" />
-    </div>
-    <button class="btn-primary" id="btn-setup-save">Save &amp; Start</button>
+    <p class="muted">Open Settings to enter your LeetCode username and start blocking.</p>
+    <button class="btn-primary" id="btn-open-settings">Open Settings →</button>
   </div>
 
   <!-- ── Not logged in ── -->
@@ -91,51 +87,7 @@
 
     </div><!-- /.main-body -->
 
-    <!-- ── Inline settings panel ── -->
-    <div id="settings-panel" class="settings-panel hidden" role="dialog" aria-label="Settings">
-      <div class="settings-header">
-        <span class="settings-title">Settings</span>
-        <button class="icon-btn" id="btn-settings-close" aria-label="Close">✕</button>
-      </div>
-      <div class="settings-body">
 
-        <div class="field-group">
-          <label class="field-label" for="s-username">LeetCode Username</label>
-          <input id="s-username" class="field-input" type="text" autocomplete="off" spellcheck="false" />
-        </div>
-
-        <div class="field-group">
-          <label class="field-label" for="s-goal">Daily Goal (questions)</label>
-          <input id="s-goal" class="field-input" type="number" min="1" max="30" />
-        </div>
-
-        <div class="toggle-row">
-          <div class="toggle-text">
-            <div class="toggle-label">Require Daily Challenge</div>
-            <div class="toggle-sub">Goal only met after solving today's daily problem</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="s-require-daily" />
-            <span class="switch-track"></span>
-          </label>
-        </div>
-
-        <div class="toggle-row">
-          <div class="toggle-text">
-            <div class="toggle-label">Notify on Goal Complete</div>
-            <div class="toggle-sub">System notification when you hit your daily target</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="s-notify" />
-            <span class="switch-track"></span>
-          </label>
-        </div>
-
-        <button class="btn-primary" id="btn-settings-save">Save Settings</button>
-        <p id="settings-saved" class="settings-saved hidden">✓ Saved</p>
-
-      </div><!-- /.settings-body -->
-    </div><!-- /#settings-panel -->
 
   </div><!-- /#view-main -->
 

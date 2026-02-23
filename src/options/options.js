@@ -3,11 +3,12 @@
  * Handles loading and saving user settings.
  */
 
-const usernameInput = document.getElementById('username');
-const dailyGoalInput = document.getElementById('daily-goal');
+const usernameInput     = document.getElementById('username');
+const dailyGoalInput    = document.getElementById('daily-goal');
 const requireDailyInput = document.getElementById('require-daily');
-const saveStatus = document.getElementById('save-status');
-const form = document.getElementById('settings-form');
+const notifyInput       = document.getElementById('notify-complete');
+const saveStatus        = document.getElementById('save-status');
+const form              = document.getElementById('settings-form');
 
 // Load saved settings into the form
 async function loadSettings() {
@@ -15,11 +16,13 @@ async function loadSettings() {
     leetcodeUsername: '',
     dailyGoal: 1,
     requireDaily: false,
+    notifyOnComplete: true,
   });
 
-  usernameInput.value = state.leetcodeUsername;
-  dailyGoalInput.value = state.dailyGoal;
+  usernameInput.value     = state.leetcodeUsername;
+  dailyGoalInput.value    = state.dailyGoal;
   requireDailyInput.checked = state.requireDaily;
+  notifyInput.checked     = state.notifyOnComplete;
 }
 
 function showStatus(message, type) {
@@ -54,6 +57,7 @@ form.addEventListener('submit', async (e) => {
     leetcodeUsername: username,
     dailyGoal,
     requireDaily,
+    notifyOnComplete: notifyInput.checked,
     // Reset daily poll cache so the new username gets polled on next startup
     lastPollDate: null,
   });
