@@ -43,9 +43,11 @@
   function tryParseAccepted(text) {
     try {
       const data = JSON.parse(text);
-      // Require state==='SUCCESS' so intermediate polling states (STARTED, PENDING)
-      // never trigger a count, even if they carried unexpected field values.
-      if (data && data.state === 'SUCCESS' && data.status_msg === 'Accepted') handleAccepted(data);
+      // Only fire on the finalised response. LeetCode's polling loop returns
+      // {state:'STARTED'} / {state:'PENDING'} many times before the final
+      // {state:'SUCCESS', status_msg:'Accepted'} arrives. We check status_msg
+      // directly — it is null/absent on every intermediate response.
+      if (data && data.status_msg === 'Accepted') handleAccepted(data);
     } catch {
       // Not JSON
     }
@@ -66,8 +68,7 @@
       const url = typeof args[0] === 'string' ? args[0] : args[0]?.url ?? '';
       if (isSubmissionCheckUrl(url)) {
         response.clone().json().then((data) => {
-          // Guard on state==='SUCCESS' to skip intermediate polling responses.
-          if (data && data.state === 'SUCCESS' && data.status_msg === 'Accepted') handleAccepted(data);
+          if (data && data.status_msg === 'Accepted') handleAccepted(data);
         }).catch(() => {});
       }
     } catch {

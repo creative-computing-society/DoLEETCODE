@@ -159,6 +159,39 @@ header {
   color: #e5e5e5;
 }
 
+/* ── Footer row (hint + sync button) ── */
+.footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0 2px;
+}
+
+.btn-sync {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #888;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-sync:hover {
+  color: #e5e5e5;
+  border-color: #666;
+}
+
+.btn-sync:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .overflow-row {
   display: flex;
   justify-content: flex-end;

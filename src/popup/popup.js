@@ -24,6 +24,7 @@ const btnSettings     = document.getElementById('btn-settings');
 const btnOpenSettings = document.getElementById('btn-open-settings');
 const overflowRow     = document.getElementById('overflow-row');
 const overflowBadge   = document.getElementById('overflow-badge');
+const btnSync         = document.getElementById('btn-sync');
 
 let countdownInterval = null;
 
@@ -155,6 +156,21 @@ btnBypass?.addEventListener('click', async () => {
     }
   } catch {
     btnBypass.disabled = false;
+  }
+});
+
+btnSync?.addEventListener('click', async () => {
+  btnSync.disabled = true;
+  btnSync.textContent = '↻ Syncing…';
+  try {
+    await chrome.runtime.sendMessage({ type: 'FORCE_SYNC' });
+    await loadAndRender();
+  } catch {
+    // Service worker woke mid-call — still try to re-render
+    await loadAndRender();
+  } finally {
+    btnSync.disabled = false;
+    btnSync.textContent = '↻ Sync';
   }
 });
 

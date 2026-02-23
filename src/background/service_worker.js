@@ -279,28 +279,78 @@ async function lazyPollIfNeeded() {
 async function handleSolveDetected({ questionSlug }) {
   const prevState = await getState();
 
-  // Deduplicate: if already counted this slug today, skip
-  if (prevState.solvedSlugs.includes(questionSlug)) {
-    await evaluateBlocking();
-    return;
+  // ── Step 1: Optimistic local update (fast UI response) ──────────────────────
+  // Add the slug immediately so the popup shows a count bump right away.
+  if (!prevState.solvedSlugs.includes(questionSlug)) {
+    const newSlugs = [...prevState.solvedSlugs, questionSlug];
+    const dailySolved =
+      prevState.requireDaily && prevState.dailySlug === questionSlug
+        ? true
+        : prevState.dailySolved;
+    await setState({
+      solvesToday: newSlugs.length,
+      solvedSlugs: newSlugs,
+      dailySolved,
+    });
   }
 
-  const newSlugs = [...prevState.solvedSlugs, questionSlug];
-  const newCount = newSlugs.length;
+  // ── Step 2: Authoritative sync from LeetCode API ────────────────────────────
+  // Always re-fetch so we're not relying on a potentially drifted local counter.
+  // This also catches any solves the content script missed (e.g. submitted from
+  // a different tab / session). One API call per submission is normal behaviour
+  // — no ban risk.
+  if (prevState.leetcodeUsername) {
+    try {
+      const { count, slugs, loggedIn } = await fetchTodaySolves(prevState.leetcodeUsername);
+      if (loggedIn) {
+        const state = await getState();
+        // Merge API slugs with any optimistically added ones
+        const mergedSlugsSet = new Set([...slugs, ...state.solvedSlugs]);
+        const mergedSlugs = [...mergedSlugsSet];
+        const dailySolved = state.dailySlug
+          ? mergedSlugsSet.has(state.dailySlug)
+          : state.dailySolved;
+        await setState({
+          solvesToday: Math.max(count, mergedSlugs.length),
+          solvedSlugs: mergedSlugs,
+          lastPollDate: todayUTC(),
+          loggedIn: true,
+          dailySolved,
+        });
+      }
+    } catch {
+      // API call failed (offline etc.) — keep the optimistic value
+    }
+  }
 
-  const dailySolved =
-    prevState.requireDaily && prevState.dailySlug === questionSlug
-      ? true
-      : prevState.dailySolved;
+  const stateBeforeGoalCheck = prevState;
+  await checkAndHandleGoalMet(stateBeforeGoalCheck);
+  await evaluateBlocking();
+}
 
-  await setState({
-    solvesToday: newCount,
-    solvedSlugs: newSlugs,
-    dailySolved,
-    lastPollDate: todayUTC(),
-  });
+// ─── Force Sync (triggered by popup Sync button) ──────────────────────────────
 
-  await checkAndHandleGoalMet(prevState);
+async function forceSync() {
+  const state = await getState();
+  if (!state.leetcodeUsername) return;
+
+  const daily = await fetchDailyChallenge();
+  if (daily) {
+    await setState({ dailySlug: daily.slug, dailyTitle: daily.title, dailyLink: daily.link });
+  }
+
+  const updated = await getState();
+  const { count, slugs, loggedIn } = await fetchTodaySolves(updated.leetcodeUsername);
+  if (loggedIn) {
+    const dailySolved = updated.dailySlug ? slugs.includes(updated.dailySlug) : false;
+    await setState({
+      solvesToday: count,
+      solvedSlugs: slugs,
+      lastPollDate: todayUTC(),
+      loggedIn: true,
+      dailySolved,
+    });
+  }
   await evaluateBlocking();
 }
 
@@ -373,6 +423,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'SETTINGS_UPDATED') {
     evaluateBlocking().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+
+  if (message.type === 'FORCE_SYNC') {
+    forceSync().then(() => sendResponse({ ok: true }));
     return true;
   }
 });
