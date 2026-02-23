@@ -7,70 +7,137 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <!-- Not configured state -->
+
+  <!-- ── Setup view (no username yet) ── -->
   <div id="view-setup" class="view hidden">
-    <div class="logo">⚡</div>
+    <div class="setup-logo">⚡</div>
     <h2>LeetCode Forcer</h2>
-    <p class="muted">Set your LeetCode username to get started.</p>
-    <button class="btn-primary" id="btn-open-settings">Open Settings</button>
+    <p class="muted">Enter your LeetCode username to get started.</p>
+    <div class="field-group">
+      <label class="field-label" for="setup-username">LeetCode Username</label>
+      <input id="setup-username" class="field-input" type="text" placeholder="e.g. john_doe" autocomplete="off" spellcheck="false" />
+    </div>
+    <button class="btn-primary" id="btn-setup-save">Save &amp; Start</button>
   </div>
 
-  <!-- Not logged in warning -->
+  <!-- ── Not logged in ── -->
   <div id="view-login" class="view hidden">
-    <div class="logo">🔐</div>
+    <div class="setup-logo">🔐</div>
     <h2>Not Logged In</h2>
-    <p class="muted">Please log into LeetCode in this browser so your progress can be tracked.</p>
-    <a href="https://leetcode.com/accounts/login/" target="_blank" class="btn-primary">Log into LeetCode</a>
+    <p class="muted">Log into LeetCode in this browser so your progress can be tracked.</p>
+    <a href="https://leetcode.com/accounts/login/" target="_blank" class="btn-primary">Log into LeetCode →</a>
   </div>
 
-  <!-- Main progress view -->
+  <!-- ── Main view ── -->
   <div id="view-main" class="view hidden">
+
+    <!-- Header -->
     <header>
       <span class="logo-sm">⚡</span>
       <span class="header-title">LeetCode Forcer</span>
-      <button class="icon-btn" id="btn-settings" title="Settings">⚙️</button>
+      <button class="icon-btn" id="btn-settings" title="Settings" aria-label="Open settings">⚙️</button>
     </header>
 
-    <!-- Goal complete banner -->
-    <div id="banner-done" class="banner banner-done hidden">
-      🎉 Done for today!
-    </div>
-
-    <!-- Bypass active banner -->
+    <!-- Status banners -->
+    <div id="banner-done" class="banner banner-done hidden">🎉 Goal complete — websites unlocked!</div>
     <div id="banner-bypass" class="banner banner-bypass hidden">
-      🚨 Emergency bypass active — <span id="bypass-countdown"></span>
+      🚨 Bypass active — <span id="bypass-countdown"></span>
     </div>
 
-    <!-- Progress -->
-    <div class="progress-section">
-      <div class="progress-label">
-        <span>Today's Progress</span>
-        <span id="progress-fraction" class="progress-num">0 / 1</span>
+    <div class="main-body">
+
+      <!-- Progress card -->
+      <section class="card">
+        <div class="card-row">
+          <span class="card-label">Today's Progress</span>
+          <span id="progress-fraction" class="progress-num">0 / 1</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progress-bar" class="progress-bar-fill" style="width:0%"></div>
+        </div>
+      </section>
+
+      <!-- Streak card -->
+      <section class="card streak-card">
+        <div class="streak-col">
+          <span class="streak-icon">🔥</span>
+          <span id="streak-current" class="streak-num">0</span>
+          <span class="streak-sub">day streak</span>
+        </div>
+        <div class="streak-divider"></div>
+        <div class="streak-col">
+          <span class="streak-icon">🏆</span>
+          <span id="streak-longest" class="streak-num">0</span>
+          <span class="streak-sub">best streak</span>
+        </div>
+      </section>
+
+      <!-- Daily challenge card (always rendered, hidden when no data) -->
+      <section id="daily-card" class="card daily-card hidden">
+        <div class="card-row">
+          <span class="card-label">Daily Challenge</span>
+          <span id="daily-badge" class="badge">—</span>
+        </div>
+        <a id="daily-link" href="https://leetcode.com" target="_blank" class="daily-title">Loading…</a>
+      </section>
+
+      <!-- Actions -->
+      <div class="actions">
+        <a id="lc-link" href="https://leetcode.com/problems/" target="_blank" class="btn-primary">Go to LeetCode →</a>
+        <button id="btn-bypass" class="btn-emergency">🚨 Emergency Bypass (3h)</button>
       </div>
-      <div class="progress-bar-bg">
-        <div id="progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+
+      <p class="footer-hint">Bypass usable once per UTC day.</p>
+
+    </div><!-- /.main-body -->
+
+    <!-- ── Inline settings panel ── -->
+    <div id="settings-panel" class="settings-panel hidden" role="dialog" aria-label="Settings">
+      <div class="settings-header">
+        <span class="settings-title">Settings</span>
+        <button class="icon-btn" id="btn-settings-close" aria-label="Close">✕</button>
       </div>
-    </div>
+      <div class="settings-body">
 
-    <!-- Daily challenge indicator (shown only when requireDaily is on) -->
-    <div id="daily-row" class="info-row hidden">
-      <span class="info-label">Daily Challenge</span>
-      <span id="daily-status" class="badge">—</span>
-    </div>
+        <div class="field-group">
+          <label class="field-label" for="s-username">LeetCode Username</label>
+          <input id="s-username" class="field-input" type="text" autocomplete="off" spellcheck="false" />
+        </div>
 
-    <!-- Actions -->
-    <div class="actions">
-      <a href="https://leetcode.com/problems/" target="_blank" class="btn-primary btn-lc">
-        Go to LeetCode →
-      </a>
+        <div class="field-group">
+          <label class="field-label" for="s-goal">Daily Goal (questions)</label>
+          <input id="s-goal" class="field-input" type="number" min="1" max="30" />
+        </div>
 
-      <button id="btn-bypass" class="btn-emergency">
-        🚨 Emergency Bypass (3h)
-      </button>
-    </div>
+        <div class="toggle-row">
+          <div class="toggle-text">
+            <div class="toggle-label">Require Daily Challenge</div>
+            <div class="toggle-sub">Goal only met after solving today's daily problem</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="s-require-daily" />
+            <span class="switch-track"></span>
+          </label>
+        </div>
 
-    <p class="footer-hint">Bypass can only be used once per day.</p>
-  </div>
+        <div class="toggle-row">
+          <div class="toggle-text">
+            <div class="toggle-label">Notify on Goal Complete</div>
+            <div class="toggle-sub">System notification when you hit your daily target</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="s-notify" />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+
+        <button class="btn-primary" id="btn-settings-save">Save Settings</button>
+        <p id="settings-saved" class="settings-saved hidden">✓ Saved</p>
+
+      </div><!-- /.settings-body -->
+    </div><!-- /#settings-panel -->
+
+  </div><!-- /#view-main -->
 
   <script src="popup.js" type="module"></script>
 </body>
