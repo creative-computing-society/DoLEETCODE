@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeetCode Forcer</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- Not configured state -->
+  <div id="view-setup" class="view hidden">
+    <div class="logo">⚡</div>
+    <h2>LeetCode Forcer</h2>
+    <p class="muted">Set your LeetCode username to get started.</p>
+    <button class="btn-primary" id="btn-open-settings">Open Settings</button>
+  </div>
+
+  <!-- Not logged in warning -->
+  <div id="view-login" class="view hidden">
+    <div class="logo">🔐</div>
+    <h2>Not Logged In</h2>
+    <p class="muted">Please log into LeetCode in this browser so your progress can be tracked.</p>
+    <a href="https://leetcode.com/accounts/login/" target="_blank" class="btn-primary">Log into LeetCode</a>
+  </div>
+
+  <!-- Main progress view -->
+  <div id="view-main" class="view hidden">
+    <header>
+      <span class="logo-sm">⚡</span>
+      <span class="header-title">LeetCode Forcer</span>
+      <button class="icon-btn" id="btn-settings" title="Settings">⚙️</button>
+    </header>
+
+    <!-- Goal complete banner -->
+    <div id="banner-done" class="banner banner-done hidden">
+      🎉 Done for today!
+    </div>
+
+    <!-- Bypass active banner -->
+    <div id="banner-bypass" class="banner banner-bypass hidden">
+      🚨 Emergency bypass active — <span id="bypass-countdown"></span>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-section">
+      <div class="progress-label">
+        <span>Today's Progress</span>
+        <span id="progress-fraction" class="progress-num">0 / 1</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Daily challenge indicator (shown only when requireDaily is on) -->
+    <div id="daily-row" class="info-row hidden">
+      <span class="info-label">Daily Challenge</span>
+      <span id="daily-status" class="badge">—</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <a href="https://leetcode.com/problems/" target="_blank" class="btn-primary btn-lc">
+        Go to LeetCode →
+      </a>
+
+      <button id="btn-bypass" class="btn-emergency">
+        🚨 Emergency Bypass (3h)
+      </button>
+    </div>
+
+    <p class="footer-hint">Bypass can only be used once per day.</p>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

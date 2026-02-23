@@ -1,0 +1,315 @@
+/**
+ * background/service_worker.js
+ * Heart of the extension. Handles:
+ *   - Daily alarm scheduling and reset (UTC midnight)
+ *   - Blocking rule management via declarativeNetRequest
+ *   - Lazy poll on startup to sync solve count (max once per UTC day)
+ *   - Receiving SOLVE_DETECTED messages from the content script
+ *   - Emergency bypass activation
+ *   - Streak tracking (increment when goal met on consecutive UTC days)
+ *   - Goal-complete notifications
+ *
+ * CRITICAL: MV3 service workers are NOT persistent. They terminate when idle.
+ * Never store state in module-level variables — always read from chrome.storage.local.
+ */
+
+import { getState, setState, resetDailyState, todayUTC, yesterdayUTC, nextUTCMidnight } from '../utils/storage.js';
+import { fetchTodaySolves, fetchDailyChallenge } from '../utils/api.js';
+
+const BLOCK_RULE_ID = 1;
+const ALARM_DAILY_RESET = 'dailyReset';
+const ALARM_BYPASS_EXPIRY = 'bypassExpiry';
+
+// ─── Blocking Rules ────────────────────────────────────────────────────────────
+
+/** Apply or remove the global blocking DNR rule based on current state. */
+async function evaluateBlocking() {
+  const state = await getState();
+
+  const goalMet =
+    state.solvesToday >= state.dailyGoal &&
+    (!state.requireDaily || state.dailySolved);
+
+  const bypassActive =
+    state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
+
+  const shouldBlock = !goalMet && !bypassActive && state.leetcodeUsername !== '';
+
+  if (shouldBlock) {
+    await applyBlockRule();
+  } else {
+    await removeBlockRule();
+  }
+}
+
+async function applyBlockRule() {
+  const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+  const alreadyApplied = existingRules.some((r) => r.id === BLOCK_RULE_ID);
+  if (alreadyApplied) return;
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [BLOCK_RULE_ID],
+    addRules: [
+      {
+        id: BLOCK_RULE_ID,
+        priority: 1,
+        action: {
+          type: 'redirect',
+          redirect: { extensionPath: '/blocked/blocked.html' },
+        },
+        condition: {
+          urlFilter: '|http*',
+          excludedRequestDomains: ['leetcode.com'],
+          resourceTypes: ['main_frame'],
+        },
+      },
+    ],
+  });
+}
+
+async function removeBlockRule() {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [BLOCK_RULE_ID],
+  });
+}
+
+// ─── Daily Alarm ───────────────────────────────────────────────────────────────
+
+async function scheduleDailyResetAlarm() {
+  await chrome.alarms.clear(ALARM_DAILY_RESET);
+  chrome.alarms.create(ALARM_DAILY_RESET, {
+    when: nextUTCMidnight(),
+    periodInMinutes: 24 * 60,
+  });
+}
+
+// ─── Streak Tracking ──────────────────────────────────────────────────────────
+
+/**
+ * Call after the goal is newly met for the current UTC day.
+ * Increments currentStreak if goal was also met yesterday, otherwise resets to 1.
+ * Updates longestStreak if the new streak beats the record.
+ */
+async function updateStreak() {
+  const state = await getState();
+  const today = todayUTC();
+
+  // Already updated streak today — don't double-count
+  if (state.lastGoalMetDate === today) return;
+
+  const newStreak =
+    state.lastGoalMetDate === yesterdayUTC()
+      ? state.currentStreak + 1
+      : 1;
+
+  const newLongest = Math.max(newStreak, state.longestStreak);
+
+  await setState({
+    currentStreak: newStreak,
+    longestStreak: newLongest,
+    lastGoalMetDate: today,
+  });
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────────
+
+async function notifyGoalMet() {
+  const state = await getState();
+  if (!state.notifyOnComplete) return;
+
+  const streak = state.currentStreak;
+  const streakText = streak > 1 ? ` 🔥 ${streak}-day streak!` : '';
+
+  try {
+    chrome.notifications.create('goal-met', {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title: 'LeetCode Forcer — Goal Met! 🎉',
+      message: `You've hit your daily goal.${streakText} Websites unlocked.`,
+      priority: 1,
+    });
+  } catch {
+    // Notifications permission may not be granted; fail silently
+  }
+}
+
+// ─── Goal Met Handler ──────────────────────────────────────────────────────────
+
+/**
+ * Checks whether the goal has just been met (was not met before, is now met).
+ * If so, updates the streak and fires a notification.
+ */
+async function checkAndHandleGoalMet(prevState) {
+  const state = await getState();
+
+  const wasGoalMet =
+    prevState.solvesToday >= prevState.dailyGoal &&
+    (!prevState.requireDaily || prevState.dailySolved);
+
+  const isGoalMet =
+    state.solvesToday >= state.dailyGoal &&
+    (!state.requireDaily || state.dailySolved);
+
+  if (!wasGoalMet && isGoalMet) {
+    await updateStreak();
+    await notifyGoalMet();
+  }
+}
+
+// ─── Lazy Poll ─────────────────────────────────────────────────────────────────
+
+/**
+ * On startup, if we haven't polled today (UTC), query LeetCode once.
+ * Syncs solve count and fetches today's daily challenge metadata.
+ */
+async function lazyPollIfNeeded() {
+  const state = await getState();
+
+  if (!state.leetcodeUsername) return;
+  if (state.lastPollDate === todayUTC()) return; // already polled today
+
+  // Fetch daily challenge info (slug + title + link)
+  const daily = await fetchDailyChallenge();
+  if (daily) {
+    await setState({
+      dailySlug: daily.slug,
+      dailyTitle: daily.title,
+      dailyLink: daily.link,
+    });
+  }
+
+  const updatedState = await getState();
+  const { count, slugs, loggedIn } = await fetchTodaySolves(updatedState.leetcodeUsername);
+
+  const dailySolved = updatedState.dailySlug
+    ? slugs.includes(updatedState.dailySlug)
+    : false;
+
+  await setState({
+    solvesToday: count,
+    solvedSlugs: slugs,
+    lastPollDate: todayUTC(),
+    loggedIn,
+    ...(updatedState.dailySlug ? { dailySolved } : {}),
+  });
+
+  await evaluateBlocking();
+}
+
+// ─── Solve Detected (from content script) ─────────────────────────────────────
+
+async function handleSolveDetected({ questionSlug }) {
+  const prevState = await getState();
+
+  // Deduplicate: if already counted this slug today, skip
+  if (prevState.solvedSlugs.includes(questionSlug)) {
+    await evaluateBlocking();
+    return;
+  }
+
+  const newSlugs = [...prevState.solvedSlugs, questionSlug];
+  const newCount = newSlugs.length;
+
+  const dailySolved =
+    prevState.requireDaily && prevState.dailySlug === questionSlug
+      ? true
+      : prevState.dailySolved;
+
+  await setState({
+    solvesToday: newCount,
+    solvedSlugs: newSlugs,
+    dailySolved,
+    lastPollDate: todayUTC(),
+  });
+
+  await checkAndHandleGoalMet(prevState);
+  await evaluateBlocking();
+}
+
+// ─── Emergency Bypass ──────────────────────────────────────────────────────────
+
+async function activateBypass() {
+  const state = await getState();
+
+  if (state.bypassUsed) {
+    return { success: false, reason: 'Already used today' };
+  }
+
+  const expiresAt = Date.now() + 3 * 60 * 60 * 1000; // 3 hours
+  await setState({ bypassUsed: true, bypassExpiresAt: expiresAt });
+
+  await chrome.alarms.clear(ALARM_BYPASS_EXPIRY);
+  chrome.alarms.create(ALARM_BYPASS_EXPIRY, { when: expiresAt });
+
+  await removeBlockRule();
+
+  return { success: true, expiresAt };
+}
+
+// ─── Alarm Handler ─────────────────────────────────────────────────────────────
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === ALARM_DAILY_RESET) {
+    await resetDailyState();
+    // Fetch daily challenge for the new UTC day
+    const state = await getState();
+    if (state.leetcodeUsername) {
+      const daily = await fetchDailyChallenge();
+      if (daily) {
+        await setState({
+          dailySlug: daily.slug,
+          dailyTitle: daily.title,
+          dailyLink: daily.link,
+        });
+      }
+    }
+    await evaluateBlocking();
+  }
+
+  if (alarm.name === ALARM_BYPASS_EXPIRY) {
+    await setState({ bypassExpiresAt: null });
+    await evaluateBlocking();
+  }
+});
+
+// ─── Message Handler ───────────────────────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'SOLVE_DETECTED') {
+    handleSolveDetected({ questionSlug: message.questionSlug }).then(() =>
+      sendResponse({ ok: true })
+    );
+    return true;
+  }
+
+  if (message.type === 'ACTIVATE_BYPASS') {
+    activateBypass().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'GET_STATE') {
+    getState().then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'SETTINGS_UPDATED') {
+    evaluateBlocking().then(() => sendResponse({ ok: true }));
+    return true;
+  }
+});
+
+// ─── Startup ───────────────────────────────────────────────────────────────────
+
+async function onStartup() {
+  await scheduleDailyResetAlarm();
+  await lazyPollIfNeeded();
+  await evaluateBlocking();
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+  const state = await getState();
+  await setState(state); // writes all defaults if not present
+  await onStartup();
+});
+
+chrome.runtime.onStartup.addListener(onStartup);

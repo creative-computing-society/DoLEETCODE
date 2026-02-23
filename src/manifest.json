@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "LeetCode Forcer",
+  "version": "1.0.0",
+  "description": "Build a real LeetCode habit. Blocks all websites until you complete your daily question goal. Features smart solve detection, a daily challenge tracker, emergency bypass, and a streak counter.",
+
+  "minimum_chrome_version": "92",
+
+  "permissions": [
+    "storage",
+    "alarms",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "tabs",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/*"],
+      "js": ["content/detector.js"],
+      "run_at": "document_start"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "options_page": "options/options.html",
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked/blocked.html", "blocked/blocked.css", "blocked/blocked.js", "icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": []
+  }
+}

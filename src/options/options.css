@@ -1,0 +1,205 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f0f0f;
+  color: #e5e5e5;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.logo {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+/* Form */
+#settings-form {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ccc;
+  letter-spacing: 0.3px;
+}
+
+input[type="text"],
+input[type="number"] {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: #f97316;
+}
+
+input[type="number"] {
+  width: 100px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* Toggle */
+.toggle-field {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toggle-field label:first-child {
+  flex: 1;
+}
+
+.toggle-field .hint {
+  width: 100%;
+  margin-top: -4px;
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #333;
+  border-radius: 24px;
+  transition: background 0.2s;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked + .slider {
+  background: #f97316;
+}
+
+.toggle input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+/* Button */
+.btn-primary {
+  background: #f97316;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 24px;
+  transition: background 0.15s, transform 0.1s;
+  align-self: flex-start;
+}
+
+.btn-primary:hover {
+  background: #ea6c0c;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Save status */
+.save-status {
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.save-status.hidden {
+  display: none;
+}
+
+.save-status.success {
+  background: #14532d;
+  color: #86efac;
+}
+
+.save-status.error {
+  background: #450a0a;
+  color: #fca5a5;
+}
+
+footer {
+  text-align: center;
+  margin-top: 24px;
+  color: #555;
+  font-size: 12px;
+  line-height: 1.6;
+}

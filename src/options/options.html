@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeetCode Forcer — Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">⚡</div>
+      <h1>LeetCode Forcer</h1>
+      <p class="subtitle">Configure your daily habit</p>
+    </header>
+
+    <form id="settings-form">
+      <div class="field">
+        <label for="username">LeetCode Username</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          placeholder="e.g. john_doe"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <span class="hint">Your LeetCode profile username (not email).</span>
+      </div>
+
+      <div class="field">
+        <label for="daily-goal">Questions Per Day</label>
+        <input
+          type="number"
+          id="daily-goal"
+          name="dailyGoal"
+          min="1"
+          max="50"
+          value="1"
+        />
+        <span class="hint">How many unique problems you must solve before the web unlocks.</span>
+      </div>
+
+      <div class="field toggle-field">
+        <label for="require-daily">Require LeetCode Daily Challenge</label>
+        <label class="toggle">
+          <input type="checkbox" id="require-daily" name="requireDaily" />
+          <span class="slider"></span>
+        </label>
+        <span class="hint">When on, at least one of today's solves must be the official LeetCode Daily Challenge.</span>
+      </div>
+
+      <div id="save-status" class="save-status hidden"></div>
+
+      <button type="submit" class="btn-primary">Save Settings</button>
+    </form>
+
+    <footer>
+      <p>Settings sync instantly. Open your browser normally after solving your daily goal.</p>
+    </footer>
+  </div>
+
+  <script src="options.js" type="module"></script>
+</body>
+</html>
