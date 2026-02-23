@@ -43,7 +43,9 @@
   function tryParseAccepted(text) {
     try {
       const data = JSON.parse(text);
-      if (data && data.status_msg === 'Accepted') handleAccepted(data);
+      // Require state==='SUCCESS' so intermediate polling states (STARTED, PENDING)
+      // never trigger a count, even if they carried unexpected field values.
+      if (data && data.state === 'SUCCESS' && data.status_msg === 'Accepted') handleAccepted(data);
     } catch {
       // Not JSON
     }
@@ -64,7 +66,8 @@
       const url = typeof args[0] === 'string' ? args[0] : args[0]?.url ?? '';
       if (isSubmissionCheckUrl(url)) {
         response.clone().json().then((data) => {
-          if (data && data.status_msg === 'Accepted') handleAccepted(data);
+          // Guard on state==='SUCCESS' to skip intermediate polling responses.
+          if (data && data.state === 'SUCCESS' && data.status_msg === 'Accepted') handleAccepted(data);
         }).catch(() => {});
       }
     } catch {
@@ -152,10 +155,13 @@
       }
     }
 
-    // Broader text search as an absolute last resort — still require exact match
+    // Broader text search as an absolute last resort.
+    // No 'm' multiline flag — the ENTIRE text content block must consist of only
+    // the word "Accepted" (plus whitespace). This prevents partial matches like
+    // "14 / 15 testcases accepted" on failed submissions from triggering a count.
     const resultArea = document.querySelector('[class*="result"], [class*="submission"]');
     if (resultArea) {
-      const isAccepted = /^\s*accepted\s*$/im.test(resultArea.textContent);
+      const isAccepted = /^\s*accepted\s*$/i.test(resultArea.textContent);
       if (isAccepted) {
         domDetectedThisLoad = true;
         handleAccepted(null);

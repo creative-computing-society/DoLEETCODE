@@ -22,6 +22,8 @@ const dailyBadge      = document.getElementById('daily-badge');
 const btnBypass       = document.getElementById('btn-bypass');
 const btnSettings     = document.getElementById('btn-settings');
 const btnOpenSettings = document.getElementById('btn-open-settings');
+const overflowRow     = document.getElementById('overflow-row');
+const overflowBadge   = document.getElementById('overflow-badge');
 
 let countdownInterval = null;
 
@@ -80,6 +82,16 @@ function render(state) {
     : 0;
   progressBar.style.width = `${pct}%`;
   progressFraction.textContent = `${state.solvesToday} / ${state.dailyGoal}`;
+
+  // Overflow — show how many extra problems solved beyond the goal
+  const overflow = state.solvesToday - state.dailyGoal;
+  if (overflow > 0) {
+    const word = overflow === 1 ? 'problem' : 'problems';
+    overflowBadge.textContent = `+${overflow} ${word} over goal`;
+    overflowRow.classList.remove('hidden');
+  } else {
+    overflowRow.classList.add('hidden');
+  }
 
   // Streak
   streakCurrent.textContent = state.currentStreak ?? 0;

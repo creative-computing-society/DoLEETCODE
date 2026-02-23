@@ -62,7 +62,11 @@ async function updateDisplay() {
     returnHint.classList.add('unlocked');
     mainContent.forEach(el => el.classList.add('hidden'));
     hintIcon.textContent = '🎉';
-    hintLabel.textContent = "Goal complete! You've earned your internet back.";
+    const overflow = state.solvesToday - state.dailyGoal;
+    const overflowText = overflow > 0
+      ? ` (+${overflow} over goal)`
+      : '';
+    hintLabel.textContent = `Goal complete!${overflowText} You've earned your internet back.`;
     btnReturn.removeAttribute('aria-disabled');
     if (originalUrl) {
       btnReturn.textContent = `🔓 Back to ${hostname || 'site'}`;
