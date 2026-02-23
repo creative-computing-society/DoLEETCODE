@@ -27,12 +27,11 @@
       Go Solve a Problem →
     </a>
 
-    <!-- Shown once goal is met — offers redirect back to the original site -->
-    <div id="goal-done" class="goal-done hidden">
-      <div class="done-icon">🎉</div>
-      <h2>Goal complete!</h2>
-      <p class="done-sub">You've earned your internet back.</p>
-      <a id="btn-return" href="#" class="btn-return">🔓 Continue to site</a>
+    <!-- Always-visible return hint — locked until goal is met -->
+    <div id="return-hint" class="return-hint">
+      <span id="hint-icon" class="hint-icon">🔒</span>
+      <p id="hint-label" class="hint-label">Complete your goal to unlock this site</p>
+      <a id="btn-return" href="#" class="btn-return" aria-disabled="true">Return to site</a>
     </div>
 
     <p class="sub">The web unlocks the moment you hit your goal.</p>

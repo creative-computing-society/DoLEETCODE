@@ -5,9 +5,11 @@
  * When bypass is active: immediately navigates back to the original URL.
  */
 
-const goalDoneSection = document.getElementById('goal-done');
-const btnReturn       = document.getElementById('btn-return');
-const mainContent     = document.querySelectorAll('.tagline, .btn-solve, .sub');
+const returnHint  = document.getElementById('return-hint');
+const hintIcon    = document.getElementById('hint-icon');
+const hintLabel   = document.getElementById('hint-label');
+const btnReturn   = document.getElementById('btn-return');
+const mainContent = document.querySelectorAll('.tagline, .btn-solve, .sub');
 
 async function updateDisplay() {
   const state = await chrome.storage.local.get({
@@ -49,24 +51,38 @@ async function updateDisplay() {
     return;
   }
 
-  if (goalMet) {
-    // Show the "go back" button, hide the blocking UI
-    goalDoneSection.classList.remove('hidden');
-    mainContent.forEach(el => el.classList.add('hidden'));
+  const originalUrl = state.lastBlockedUrl;
+  let hostname = '';
+  if (originalUrl) {
+    try { hostname = new URL(originalUrl).hostname; } catch {}
+  }
 
-    const originalUrl = state.lastBlockedUrl;
+  if (goalMet) {
+    // Unlock the return hint
+    returnHint.classList.add('unlocked');
+    mainContent.forEach(el => el.classList.add('hidden'));
+    hintIcon.textContent = '🎉';
+    hintLabel.textContent = "Goal complete! You've earned your internet back.";
+    btnReturn.removeAttribute('aria-disabled');
     if (originalUrl) {
-      try {
-        const hostname = new URL(originalUrl).hostname;
-        btnReturn.textContent = `🔓 Back to ${hostname}`;
-      } catch {
-        btnReturn.textContent = '🔓 Continue to site';
-      }
+      btnReturn.textContent = `🔓 Back to ${hostname || 'site'}`;
       btnReturn.href = originalUrl;
     } else {
       btnReturn.textContent = '📚 Go to LeetCode';
       btnReturn.href = 'https://leetcode.com/problems/';
     }
+  } else {
+    // Keep hint locked — show how many problems remain
+    returnHint.classList.remove('unlocked');
+    mainContent.forEach(el => el.classList.remove('hidden'));
+    hintIcon.textContent = '🔒';
+    const remaining = Math.max(0, state.dailyGoal - state.solvesToday);
+    const word = remaining === 1 ? 'problem' : 'problems';
+    const siteText = hostname ? ` — unlock access to ${hostname}` : '';
+    hintLabel.textContent = `Solve ${remaining} more ${word}${siteText}`;
+    btnReturn.setAttribute('aria-disabled', 'true');
+    btnReturn.textContent = hostname ? `Return to ${hostname}` : 'Return to site';
+    btnReturn.href = '#';
   }
 }
 
