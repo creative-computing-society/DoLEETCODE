@@ -120,6 +120,50 @@ h1 {
   margin-top: 4px;
 }
 
+/* Goal-complete section */
+.goal-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #0d2318;
+  border: 1px solid #14532d;
+  border-radius: 14px;
+  padding: 24px 32px;
+  margin-top: 8px;
+}
+
+.goal-done.hidden { display: none; }
+
+.done-icon { font-size: 40px; line-height: 1; }
+
+.goal-done h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #86efac;
+}
+
+.done-sub {
+  color: #4ade80;
+  font-size: 14px;
+}
+
+.btn-return {
+  display: inline-block;
+  background: #16a34a;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 28px;
+  text-decoration: none;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+
+.btn-return:hover { background: #15803d; }
+}
+
 .btn-solve:hover {
   background: #ea6c0c;
   transform: translateY(-1px);

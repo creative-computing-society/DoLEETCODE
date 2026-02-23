@@ -59,11 +59,28 @@ h1 {
   gap: 6px;
 }
 
-label {
-  font-size: 13px;
+/* Locked banner */
+.locked-banner {
+  background: #1c1917;
+  border: 1px solid #44403c;
+  border-radius: 7px;
+  color: #a8a29e;
+  font-size: 12px;
   font-weight: 600;
-  color: #ccc;
-  letter-spacing: 0.3px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+}
+
+.locked-banner.hidden { display: none; }
+
+input:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+label:has(input:disabled) {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 input[type="text"],

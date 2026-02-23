@@ -1,8 +1,13 @@
 /**
  * blocked/blocked.js
  * Reads current state and updates the blocked page's progress display.
- * Note: cannot use ES modules here (loaded as regular script).
+ * When goal is met: shows a "go back" button pointing to the original URL.
+ * When bypass is active: immediately navigates back to the original URL.
  */
+
+const goalDoneSection = document.getElementById('goal-done');
+const btnReturn       = document.getElementById('btn-return');
+const mainContent     = document.querySelectorAll('.tagline, .btn-solve, .sub');
 
 async function updateDisplay() {
   const state = await chrome.storage.local.get({
@@ -11,12 +16,13 @@ async function updateDisplay() {
     requireDaily: false,
     dailySolved: false,
     bypassExpiresAt: null,
+    lastBlockedUrl: '',
   });
 
   document.getElementById('solved-count').textContent = state.solvesToday;
-  document.getElementById('goal-count').textContent = state.dailyGoal;
+  document.getElementById('goal-count').textContent   = state.dailyGoal;
 
-  const dailyInfo = document.getElementById('daily-info');
+  const dailyInfo       = document.getElementById('daily-info');
   const dailyStatusText = document.getElementById('daily-status-text');
 
   if (state.requireDaily) {
@@ -26,6 +32,7 @@ async function updateDisplay() {
       dailyStatusText.classList.add('daily-done');
     } else {
       dailyStatusText.textContent = 'Daily challenge: still pending';
+      dailyStatusText.classList.remove('daily-done');
     }
   }
 
@@ -36,19 +43,36 @@ async function updateDisplay() {
   const bypassActive =
     state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
 
-  // Redirect away from blocked page when goal is met OR bypass is active
-  if (goalMet || bypassActive) {
-    window.location.replace('https://leetcode.com/problems/');
+  if (bypassActive) {
+    // Bypass activated — immediately navigate to the original destination
+    window.location.replace(state.lastBlockedUrl || 'https://leetcode.com/problems/');
+    return;
+  }
+
+  if (goalMet) {
+    // Show the "go back" button, hide the blocking UI
+    goalDoneSection.classList.remove('hidden');
+    mainContent.forEach(el => el.classList.add('hidden'));
+
+    const originalUrl = state.lastBlockedUrl;
+    if (originalUrl) {
+      try {
+        const hostname = new URL(originalUrl).hostname;
+        btnReturn.textContent = `🔓 Back to ${hostname}`;
+      } catch {
+        btnReturn.textContent = '🔓 Continue to site';
+      }
+      btnReturn.href = originalUrl;
+    } else {
+      btnReturn.textContent = '📚 Go to LeetCode';
+      btnReturn.href = 'https://leetcode.com/problems/';
+    }
   }
 }
 
-// Update immediately and poll every 5 seconds
 updateDisplay();
 setInterval(updateDisplay, 5000);
 
-// Also update when storage changes (passive detection fires and updates storage)
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && (changes.solvesToday || changes.dailySolved)) {
-    updateDisplay();
-  }
+  if (area === 'local') updateDisplay();
 });

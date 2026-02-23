@@ -84,6 +84,8 @@ async function evaluateTab(tabId, url) {
     state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
 
   if (!goalMet && !bypassActive) {
+    // Remember what the user was trying to visit so the blocked page can offer a "go back" button
+    await chrome.storage.local.set({ lastBlockedUrl: url });
     try {
       await chrome.tabs.update(tabId, {
         url: chrome.runtime.getURL('blocked/blocked.html'),
@@ -95,15 +97,19 @@ async function evaluateTab(tabId, url) {
 }
 
 /**
- * Re-evaluate every open tab across all windows.
- * Called after state changes: solve detected, bypass expired, settings saved, daily reset.
+ * Re-evaluate only the currently focused tab.
+ * We intentionally do NOT sweep all open tabs — background tabs should not
+ * be silently redirected. The onUpdated/onActivated listeners handle blocking
+ * the moment the user actually navigates to or focuses a tab.
  */
 async function evaluateBlocking() {
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (tab.id && tab.url) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab?.id && tab?.url) {
       await evaluateTab(tab.id, tab.url);
     }
+  } catch {
+    // No focused window (e.g. browser minimised) — nothing to do
   }
 }
 
