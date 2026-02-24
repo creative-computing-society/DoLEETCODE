@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Build a real LeetCode habit. Blocks all websites until you complete your daily question goal. Features smart solve detection, a daily challenge tracker, emergency bypass, and a streak counter.",
 
-  "minimum_chrome_version": "92",
+  "minimum_chrome_version": "111",
 
   "permissions": [
     "storage",
@@ -22,6 +22,12 @@
   },
 
   "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/*"],
+      "js": ["content/injected.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://leetcode.com/*"],
       "js": ["content/detector.js"],
