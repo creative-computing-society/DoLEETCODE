@@ -118,7 +118,8 @@ header {
   text-align: center;
   flex-shrink: 0;
 }
-.banner-done  { background: #14532d; color: #86efac; }
+.banner-done   { background: #14532d; color: #86efac; }
+.banner-reward { background: #1e3a5f; color: #93c5fd; }
 .banner-bypass { background: #450a0a; color: #fca5a5; }
 
 /* ── Main scrollable body ── */

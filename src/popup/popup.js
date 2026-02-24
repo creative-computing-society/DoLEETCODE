@@ -10,6 +10,8 @@ const viewLogin       = document.getElementById('view-login');
 const viewMain        = document.getElementById('view-main');
 
 const bannerDone      = document.getElementById('banner-done');
+const bannerReward    = document.getElementById('banner-reward');
+const rewardCountdown = document.getElementById('reward-countdown');
 const bannerBypass    = document.getElementById('banner-bypass');
 const bypassCountdown = document.getElementById('bypass-countdown');
 const progressFraction = document.getElementById('progress-fraction');
@@ -58,20 +60,28 @@ function render(state) {
   const bypassActive =
     state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
 
+  const rewardActive =
+    state.rewardExpiresAt !== null && Date.now() < state.rewardExpiresAt && !goalMet;
+
   // Banners
   bannerDone.classList.toggle('hidden', !goalMet);
+  bannerReward.classList.toggle('hidden', !rewardActive);
   bannerBypass.classList.toggle('hidden', !bypassActive);
 
-  // Live bypass countdown
+  // Live countdowns
   clearInterval(countdownInterval);
-  if (bypassActive) {
+  const activeTimer = bypassActive ? state.bypassExpiresAt
+                    : rewardActive ? state.rewardExpiresAt
+                    : null;
+  if (activeTimer) {
+    const targetEl = bypassActive ? bypassCountdown : rewardCountdown;
     const tick = () => {
-      if (Date.now() >= state.bypassExpiresAt) {
+      if (Date.now() >= activeTimer) {
         clearInterval(countdownInterval);
-        bypassCountdown.textContent = 'expired';
+        targetEl.textContent = 'expired';
         return;
       }
-      bypassCountdown.textContent = formatCountdown(state.bypassExpiresAt);
+      targetEl.textContent = formatCountdown(activeTimer);
     };
     tick();
     countdownInterval = setInterval(tick, 1000);
@@ -135,6 +145,7 @@ async function loadAndRender() {
       notifyOnComplete: true, solvesToday: 0, dailySolved: false,
       bypassUsed: false, bypassExpiresAt: null, loggedIn: null,
       currentStreak: 0, longestStreak: 0, dailyTitle: '', dailyLink: '',
+      rewardExpiresAt: null, rewardMinutesPerSolve: 60,
     });
     render(state);
   }

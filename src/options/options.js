@@ -3,12 +3,13 @@
  * Handles loading and saving user settings.
  */
 
-const usernameInput     = document.getElementById('username');
-const dailyGoalInput    = document.getElementById('daily-goal');
-const requireDailyInput = document.getElementById('require-daily');
-const notifyInput       = document.getElementById('notify-complete');
-const saveStatus        = document.getElementById('save-status');
-const form              = document.getElementById('settings-form');
+const usernameInput      = document.getElementById('username');
+const dailyGoalInput     = document.getElementById('daily-goal');
+const requireDailyInput  = document.getElementById('require-daily');
+const notifyInput        = document.getElementById('notify-complete');
+const rewardMinutesInput = document.getElementById('reward-minutes');
+const saveStatus         = document.getElementById('save-status');
+const form               = document.getElementById('settings-form');
 
 // Load saved settings into the form
 async function loadSettings() {
@@ -17,14 +18,16 @@ async function loadSettings() {
     dailyGoal: 1,
     requireDaily: false,
     notifyOnComplete: true,
+    rewardMinutesPerSolve: 60,
     solvesToday: 0,
     dailySolved: false,
   });
 
-  usernameInput.value       = state.leetcodeUsername;
-  dailyGoalInput.value      = state.dailyGoal;
-  requireDailyInput.checked = state.requireDaily;
-  notifyInput.checked       = state.notifyOnComplete;
+  usernameInput.value        = state.leetcodeUsername;
+  dailyGoalInput.value       = state.dailyGoal;
+  requireDailyInput.checked  = state.requireDaily;
+  notifyInput.checked        = state.notifyOnComplete;
+  rewardMinutesInput.value   = state.rewardMinutesPerSolve;
 
   // Lock goal-related settings if today's goal hasn't been met yet.
   // All fields (including username) are locked until goal is met.
@@ -73,6 +76,7 @@ form.addEventListener('submit', async (e) => {
     ...(usernameInput.disabled  ? {} : { leetcodeUsername: username, lastPollDate: null }),
     ...(dailyGoalInput.disabled ? {} : { dailyGoal, requireDaily }),
     notifyOnComplete: notifyInput.checked,
+    rewardMinutesPerSolve: Math.max(5, parseInt(rewardMinutesInput.value, 10) || 60),
   });
 
   // Tell background service worker to re-evaluate blocking

@@ -54,6 +54,19 @@
         <span class="hint">When on, at least one of today's solves must be the official LeetCode Daily Challenge.</span>
       </div>
 
+      <div class="field">
+        <label for="reward-minutes">Reward Time per Question (minutes)</label>
+        <input
+          type="number"
+          id="reward-minutes"
+          name="rewardMinutesPerSolve"
+          min="5"
+          max="480"
+          value="60"
+        />
+        <span class="hint">Free browsing time earned for each problem solved. Stacks — solving while time is active extends it.</span>
+      </div>
+
       <div class="field toggle-field">
         <label for="notify-complete">Notify on Goal Complete</label>
         <label class="toggle">

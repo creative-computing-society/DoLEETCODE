@@ -30,6 +30,10 @@ export const DEFAULTS = {
   longestStreak: 0,
   lastGoalMetDate: null,   // 'YYYY-MM-DD' UTC of last day goal was met
 
+  // Reward time: free browsing earned by solving problems
+  rewardMinutesPerSolve: 60,  // minutes of free time earned per solve
+  rewardExpiresAt: null,       // ms timestamp when current reward window closes
+
   // Rate-limiting guard: epoch ms of last LeetCode API call.
   // Prevents hammering the API on rapid wake-ups or button spam.
   lastPollTimestamp: 0,
@@ -56,6 +60,7 @@ export async function resetDailyState() {
     dailySolved: false,
     bypassUsed: false,
     bypassExpiresAt: null,
+    rewardExpiresAt: null,
     lastPollDate: null,
     solvedSlugs: [],
     dailySlug: null,

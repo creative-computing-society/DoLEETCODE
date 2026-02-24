@@ -18,6 +18,8 @@ async function updateDisplay() {
     requireDaily: false,
     dailySolved: false,
     bypassExpiresAt: null,
+    rewardExpiresAt: null,
+    rewardMinutesPerSolve: 60,
     lastBlockedUrl: '',
   });
 
@@ -45,8 +47,11 @@ async function updateDisplay() {
   const bypassActive =
     state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
 
-  if (bypassActive) {
-    // Bypass activated — immediately navigate to the original destination
+  const rewardActive =
+    state.rewardExpiresAt !== null && Date.now() < state.rewardExpiresAt;
+
+  if (bypassActive || rewardActive) {
+    // Free time active — immediately navigate to the original destination
     window.location.replace(state.lastBlockedUrl || 'https://leetcode.com/problems/');
     return;
   }
@@ -82,8 +87,12 @@ async function updateDisplay() {
     hintIcon.textContent = '🔒';
     const remaining = Math.max(0, state.dailyGoal - state.solvesToday);
     const word = remaining === 1 ? 'problem' : 'problems';
+    const rewardMin = state.rewardMinutesPerSolve ?? 60;
+    const earnText = rewardMin >= 60
+      ? `${rewardMin / 60}h`
+      : `${rewardMin}min`;
     const siteText = hostname ? ` — unlock access to ${hostname}` : '';
-    hintLabel.textContent = `Solve ${remaining} more ${word}${siteText}`;
+    hintLabel.textContent = `Solve ${remaining} more ${word}${siteText} (+${earnText} browsing each)`;
     btnReturn.setAttribute('aria-disabled', 'true');
     btnReturn.textContent = hostname ? `Return to ${hostname}` : 'Return to site';
     btnReturn.href = '#';

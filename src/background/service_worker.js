@@ -126,7 +126,10 @@ async function evaluateTab(tabId, url) {
   const bypassActive =
     state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
 
-  if (!goalMet && !bypassActive) {
+  const rewardActive =
+    state.rewardExpiresAt !== null && Date.now() < state.rewardExpiresAt;
+
+  if (!goalMet && !bypassActive && !rewardActive) {
     // Remember what the user was trying to visit so the blocked page can offer a "go back" button
     await chrome.storage.local.set({ lastBlockedUrl: url });
     try {
@@ -330,10 +333,18 @@ async function handleSolveDetected({ questionSlug }) {
       prevState.requireDaily && prevState.dailySlug === questionSlug
         ? true
         : prevState.dailySolved;
+
+    // Extend reward window: stack on top of any remaining time so back-to-back
+    // solves don't waste earned minutes. Base is max(now, current expiry).
+    const currentExpiry = prevState.rewardExpiresAt ?? 0;
+    const base = Math.max(Date.now(), currentExpiry);
+    const rewardExpiresAt = base + (prevState.rewardMinutesPerSolve ?? 60) * 60 * 1000;
+
     await setState({
       solvesToday: newSlugs.length,
       solvedSlugs: newSlugs,
       dailySolved,
+      rewardExpiresAt,
     });
     await checkAndHandleGoalMet(prevState);
   }
