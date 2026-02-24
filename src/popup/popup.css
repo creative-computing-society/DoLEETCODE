@@ -315,6 +315,22 @@ header {
 .btn-primary:hover { background: #ea6c0c; }
 .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 
+.btn-reward {
+  display: block;
+  width: 100%;
+  background: #0a1a12;
+  border: 1px solid #14532d;
+  border-radius: 8px;
+  color: #86efac;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 14px;
+  transition: background .15s, opacity .15s;
+}
+.btn-reward:hover:not(:disabled) { background: #0f2a1a; }
+.btn-reward:disabled { opacity: .35; cursor: not-allowed; }
+
 .btn-emergency {
   display: block;
   width: 100%;
@@ -618,6 +634,29 @@ header {
 
 .btn-primary:hover {
   background: #ea6c0c;
+}
+
+.btn-reward {
+  display: block;
+  width: 100%;
+  background: #0a1a12;
+  border: 1px solid #14532d;
+  border-radius: 8px;
+  color: #86efac;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 16px;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-reward:hover:not(:disabled) {
+  background: #0f2a1a;
+}
+
+.btn-reward:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .btn-emergency {

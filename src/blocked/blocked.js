@@ -56,6 +56,13 @@ async function updateDisplay() {
     return;
   }
 
+  // Reward claim button — show when ≥1 solve today and no free access yet
+  const btnReward = document.getElementById('btn-reward');
+  if (btnReward) {
+    const canClaim = state.solvesToday >= 1 && !goalMet && !rewardActive && !bypassActive;
+    btnReward.classList.toggle('hidden', !canClaim);
+  }
+
   const originalUrl = state.lastBlockedUrl;
   let hostname = '';
   if (originalUrl) {
@@ -104,6 +111,22 @@ setInterval(updateDisplay, 5000);
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local') updateDisplay();
+});
+
+// Reward claim button — manually activate the 1-hour reward
+const btnRewardEl = document.getElementById('btn-reward');
+btnRewardEl?.addEventListener('click', async () => {
+  btnRewardEl.disabled = true;
+  try {
+    const result = await chrome.runtime.sendMessage({ type: 'CLAIM_REWARD' });
+    if (result.success) {
+      await updateDisplay();
+    } else {
+      btnRewardEl.disabled = false;
+    }
+  } catch {
+    btnRewardEl.disabled = false;
+  }
 });
 
 // Sync button — re-fetches solve count from LeetCode API

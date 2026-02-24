@@ -22,6 +22,7 @@ const dailyCard       = document.getElementById('daily-card');
 const dailyLink       = document.getElementById('daily-link');
 const dailyBadge      = document.getElementById('daily-badge');
 const btnBypass       = document.getElementById('btn-bypass');
+const btnReward       = document.getElementById('btn-reward');
 const btnSettings     = document.getElementById('btn-settings');
 const btnOpenSettings = document.getElementById('btn-open-settings');
 const overflowRow     = document.getElementById('overflow-row');
@@ -124,6 +125,10 @@ function render(state) {
     dailyCard.classList.add('hidden');
   }
 
+  // Reward claim button — visible when ≥1 solve today and no free access yet
+  const canClaimReward = state.solvesToday >= 1 && !goalMet && !rewardActive && !bypassActive;
+  btnReward.classList.toggle('hidden', !canClaimReward);
+
   // Bypass button
   btnBypass.disabled = state.bypassUsed;
   btnBypass.textContent = bypassActive
@@ -154,6 +159,21 @@ async function loadAndRender() {
 // ── Events ────────────────────────────────────────────────────────────────────
 btnSettings?.addEventListener('click', () => chrome.runtime.openOptionsPage());
 btnOpenSettings?.addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+btnReward?.addEventListener('click', async () => {
+  btnReward.disabled = true;
+  try {
+    const result = await chrome.runtime.sendMessage({ type: 'CLAIM_REWARD' });
+    if (result.success) {
+      await loadAndRender();
+    } else {
+      alert(result.reason || 'Cannot claim reward right now.');
+      btnReward.disabled = false;
+    }
+  } catch {
+    btnReward.disabled = false;
+  }
+});
 
 btnBypass?.addEventListener('click', async () => {
   btnBypass.disabled = true;

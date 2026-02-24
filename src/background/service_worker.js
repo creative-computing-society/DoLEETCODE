@@ -510,7 +510,34 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     forceSync().then(() => sendResponse({ ok: true }));
     return true;
   }
+
+  if (message.type === 'CLAIM_REWARD') {
+    claimReward().then(sendResponse);
+    return true;
+  }
 });
+
+/**
+ * Manually claim the per-solve reward minute budget (triggered by button).
+ * Only allowed when ≥1 problem solved today and no free time is already running.
+ */
+async function claimReward() {
+  const state = await getState();
+  if (state.solvesToday < 1) return { success: false, reason: 'Solve at least one problem first.' };
+  const rewardActive = state.rewardExpiresAt !== null && Date.now() < state.rewardExpiresAt;
+  const bypassActive = state.bypassExpiresAt !== null && Date.now() < state.bypassExpiresAt;
+  const goalMet =
+    state.solvesToday >= state.dailyGoal &&
+    (!state.requireDaily || state.dailySolved);
+  if (rewardActive || bypassActive || goalMet) {
+    return { success: false, reason: 'Already have free access.' };
+  }
+  const minutes = state.rewardMinutesPerSolve ?? 60;
+  const rewardExpiresAt = Date.now() + minutes * 60 * 1000;
+  await setState({ rewardExpiresAt });
+  await evaluateBlocking();
+  return { success: true };
+}
 
 // ─── Startup ───────────────────────────────────────────────────────────────────
 
